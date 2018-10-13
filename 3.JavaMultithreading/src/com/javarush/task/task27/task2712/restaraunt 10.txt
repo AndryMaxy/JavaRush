@@ -1,0 +1,89 @@
+public class AdvertisementManager {
+    private final AdvertisementStorage storage = AdvertisementStorage.getInstance();
+    private int timeSeconds;
+    private List<Advertisement> adsToShow;
+    private long maxProfit;
+
+    public AdvertisementManager(int timeSeconds) {
+        this.timeSeconds = timeSeconds;
+    }
+
+/*    2.4. Отобразить все рекламные ролики, отобранные для показа, в порядке уменьшения стоимости показа одного рекламного ролика в копейках.
+Вторичная сортировка - по увеличению стоимости показа одной секунды рекламного ролика в тысячных частях копейки.
+    Используйте метод Collections.sort
+            (Тоже пока делать не нужно, сделаем позже).
+
+    Пример для заказа [Water]:
+    First Video is displaying... 50, 277*/
+
+    public void processVideos() {
+        if (storage.list().size() == 0)
+            throw new NoVideoAvailableException();
+        List<Advertisement> ads = new ArrayList<>();
+        for (int i = 0; i < storage.list().size(); i++) {
+            if (storage.list().get(i).getHits() > 0 && storage.list().get(i).getDuration() < timeSeconds) {
+                ads.add(storage.list().get(i));
+            }
+        }
+        getAdsToShow(ads);
+        adsToShow.sort(Comparator.comparing(Advertisement::getAmountPerOneDisplaying).reversed().
+                thenComparing(Advertisement::getMoneyPerSeconds));
+
+        for (Advertisement ad : adsToShow) {
+            ConsoleHelper.writeMessage(String.format("%s  is displaying... %d, %d", ad.getName(), ad.getAmountPerOneDisplaying(), ad.getAmountPerOneDisplaying() * 1000 / ad.getDuration()));
+            ad.revalidate();
+           // System.out.println(ads.getName());
+        }
+    }
+
+    public long calcProfit(List<Advertisement> ads) {
+        int profit = 0;
+        for (Advertisement ad : ads) {
+            profit += ad.getAmountPerOneDisplaying();
+        }
+        return profit;
+    }
+    public int calcDuration(List<Advertisement> ads) {
+        int duration = 0;
+        for (Advertisement ad : ads) {
+            duration += ad.getDuration();
+        }
+        return duration;
+    }
+
+    public void checkSet(List<Advertisement> ads){
+
+        if (adsToShow == null && calcDuration(ads) <= timeSeconds) {
+            adsToShow = ads;
+            maxProfit = calcProfit(ads);
+        } else {
+            int duration = calcDuration(ads);
+            long money = calcProfit(ads);
+            if (money == maxProfit) {
+                List<Advertisement> listWithLowerSize = adsToShow.size() < ads.size() ? adsToShow : ads;
+                adsToShow = duration > calcDuration(adsToShow) ? ads : duration < calcDuration(adsToShow) ? adsToShow : listWithLowerSize;
+                adsToShow = ads;
+                maxProfit = money;
+            } else {
+                if (duration <= timeSeconds && money > maxProfit) {
+                    adsToShow = ads;
+                    maxProfit = money;
+                }
+            }
+        }
+    }
+
+    public void getAdsToShow(List<Advertisement> ads) {
+
+        if (ads.size() > 0) {
+            checkSet(ads);
+        }
+        for (int i = 0; i < ads.size(); i++) {
+
+            CopyOnWriteArrayList<Advertisement> newAd = new CopyOnWriteArrayList<>(ads);
+            
+            newAd.remove(i);
+            getAdsToShow(newAd);
+        }
+    }
+}
